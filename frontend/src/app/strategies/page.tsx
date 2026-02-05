@@ -35,7 +35,7 @@ export default function StrategiesPage() {
   });
   const [gonderiliyor, setGonderiliyor] = useState(false);
 
-  const getDefaultParams = (t: string) => {
+  const getDefaultParams = (t: string): Record<string, number> => {
     if (t === "rsi") return { rsi_period: 14, oversold: 30, overbought: 70 };
     if (t === "ma_cross") return { short_period: 10, long_period: 20 };
     return {};
