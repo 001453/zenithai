@@ -43,9 +43,7 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: ""
-      BACKEND_URL: "http://host.docker.internal:8000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      BACKEND_URL: "http://backend:8000"
     depends_on:
       - backend
     networks:
