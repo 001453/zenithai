@@ -1,5 +1,5 @@
 """Auth: login, register, token based on User model."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import or_, select
 
@@ -27,7 +27,7 @@ class RegisterRequest(BaseModel):
 
 
 @router.post("/register", response_model=Token)
-async def register(body: RegisterRequest, db: DbSession = Depends()) -> Token:
+async def register(body: RegisterRequest, db: DbSession) -> Token:
     result = await db.execute(
         select(User).where(or_(User.username == body.username, User.email == body.email))
     )
@@ -50,7 +50,7 @@ async def register(body: RegisterRequest, db: DbSession = Depends()) -> Token:
 
 
 @router.post("/login", response_model=Token)
-async def login(body: LoginRequest, db: DbSession = Depends()) -> Token:
+async def login(body: LoginRequest, db: DbSession) -> Token:
     result = await db.execute(select(User).where(User.username == body.username))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
