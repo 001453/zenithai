@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    # CORS
+    # CORS (localhost + Codespaces *.app.github.dev)
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origin_regex: str | None = "https://.*\\.app\\.github\\.dev"  # Codespaces frontend
 
     # Market data providers (API keys from env)
     binance_api_key: Optional[str] = None

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AppHeader from "@/components/AppHeader";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
+import { getApiBase } from "@/lib/api";
 
 const BORSALAR = [
   { id: "binance", label: "Kripto (Binance)" },
@@ -19,7 +19,7 @@ export default function MarketsPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API}/api/v1/markets/symbols?exchange=${exchange}`)
+    fetch(`${getApiBase()}/api/v1/markets/symbols?exchange=${exchange}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.symbols) setSymbols(data.symbols.slice(0, 50));

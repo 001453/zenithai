@@ -5,24 +5,22 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import AppHeader from "@/components/AppHeader";
-import { fetchAuth, getToken } from "@/lib/api";
+import { fetchAuth, getToken, getApiBase } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
 
 const Chart = dynamic(() => import("@/components/Chart"), { ssr: false });
 
 function getWsBase(): string {
-  return process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, "ws")
-    : typeof window !== "undefined"
-      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
-      : "";
+  const base = getApiBase();
+  if (base.startsWith("http")) return base.replace(/^http/, "ws");
+  return typeof window !== "undefined"
+    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`
+    : "";
 }
 
 function getTickerWsUrl(sym: string, exch: string): string {
   const base = getWsBase();
-  const path = process.env.NEXT_PUBLIC_API_URL ? "/api/v1/ws/ticker" : "/api/backend/api/v1/ws/ticker";
+  const path = base.startsWith("ws") ? "/api/v1/ws/ticker" : "/api/backend/api/v1/ws/ticker";
   const params = new URLSearchParams({
     symbol: sym,
     exchange: exch,
@@ -33,7 +31,7 @@ function getTickerWsUrl(sym: string, exch: string): string {
 
 function getOhlcvWsUrl(sym: string, exch: string): string {
   const base = getWsBase();
-  const path = process.env.NEXT_PUBLIC_API_URL ? "/api/v1/ws/ohlcv" : "/api/backend/api/v1/ws/ohlcv";
+  const path = base.startsWith("ws") ? "/api/v1/ws/ohlcv" : "/api/backend/api/v1/ws/ohlcv";
   const params = new URLSearchParams({
     symbol: sym,
     exchange: exch,
@@ -94,8 +92,8 @@ export default function SymbolPage() {
   useEffect(() => {
     if (!symbol) return;
     Promise.all([
-      fetch(`${API}/api/v1/markets/ohlcv?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&timeframe=1h&limit=100`).then((r) => r.json()),
-      fetch(`${API}/api/v1/markets/ticker?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()),
+      fetch(`${getApiBase()}/api/v1/markets/ohlcv?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&timeframe=1h&limit=100`).then((r) => r.json()),
+      fetch(`${getApiBase()}/api/v1/markets/ticker?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()),
     ])
       .then(([ohlcvRes, tickerRes]) => {
         if (ohlcvRes.candles) setOhlcv(ohlcvRes.candles);

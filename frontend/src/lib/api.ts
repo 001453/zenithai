@@ -1,5 +1,14 @@
-const API = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
 const TOKEN_KEY = "zenithai_token";
+
+/** Tarayıcıda Codespaces/localhost için backend URL (3000→8000). SSR'da proxy. */
+export function getApiBase(): string {
+  if (typeof window !== "undefined") {
+    const o = window.location.origin;
+    if (o.includes("-3000.")) return o.replace("-3000.", "-8000.");
+    if (o.includes(":3000")) return o.replace(":3000", ":8000");
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "/api/backend";
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -23,7 +32,7 @@ export async function fetchAuth(
   const token = getToken();
   const headers = new Headers(options.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${API}${path}`, { ...options, headers });
+  const res = await fetch(`${getApiBase()}${path}`, { ...options, headers });
   if (res.status === 401 && typeof window !== "undefined") {
     clearToken();
     window.location.replace("/giris");
@@ -31,6 +40,3 @@ export async function fetchAuth(
   return res;
 }
 
-export function getApiBase(): string {
-  return API;
-}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { setToken, getToken } from "@/lib/api";
+import { setToken, getToken, getApiBase } from "@/lib/api";
 import AppHeader from "@/components/AppHeader";
 
 export default function GirisPage() {
@@ -21,8 +21,7 @@ export default function GirisPage() {
     setHata("");
     setYukleniyor(true);
     try {
-      const api = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
-      const res = await fetch(`${api}/api/v1/auth/login`, {
+      const res = await fetch(`${getApiBase()}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: kullanici, password: sifre }),
