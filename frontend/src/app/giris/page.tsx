@@ -92,7 +92,6 @@ export default function GirisPage() {
           </Link>
         </p>
       </div>
-      </div>
     </div>
   );
 }
