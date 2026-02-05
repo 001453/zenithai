@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AppHeader from "@/components/AppHeader";
@@ -33,7 +33,7 @@ type Position = {
 
 type Strategy = { id: number; name: string };
 
-export default function EmirlerPage() {
+function EmirlerContent() {
   const searchParams = useSearchParams();
   const urlStrategyId = searchParams.get("strategy_id");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -401,5 +401,13 @@ export default function EmirlerPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function EmirlerPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-zinc-500">Yükleniyor...</p></div>}>
+      <EmirlerContent />
+    </Suspense>
   );
 }

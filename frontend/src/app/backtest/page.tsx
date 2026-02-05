@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AppHeader from "@/components/AppHeader";
@@ -21,7 +21,7 @@ type Run = {
   win_rate_pct: number | null;
 };
 
-export default function BacktestPage() {
+function BacktestContent() {
   const searchParams = useSearchParams();
   const urlStrategyId = searchParams.get("strategy_id");
   const [strategies, setStrategies] = useState<Strategy[]>([]);
@@ -325,5 +325,13 @@ export default function BacktestPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function BacktestPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-zinc-500">Yükleniyor...</p></div>}>
+      <BacktestContent />
+    </Suspense>
   );
 }
