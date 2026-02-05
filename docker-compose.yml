@@ -1,0 +1,46 @@
+# Zenithai - modüler yapı: frontend, backend, db
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zenithai
+      POSTGRES_PASSWORD: zenithai
+      POSTGRES_DB: zenithai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zenithai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://zenithai:zenithai@db:5432/zenithai
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-in-prod}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ""
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
