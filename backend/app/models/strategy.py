@@ -1,6 +1,6 @@
 """Trading strategy model."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,5 +25,5 @@ class Strategy(Base):
     ml_model_id: Mapped[int | None] = mapped_column(
         ForeignKey("ml_models.id", ondelete="SET NULL"), index=True, nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now())
 
