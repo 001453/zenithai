@@ -1,10 +1,16 @@
 const TOKEN_KEY = "zenithai_token";
 
-/** Tarayıcıda Codespaces/localhost için backend URL (3000→8000). SSR'da proxy. */
+/** Tarayıcıda backend URL:
+ * - Codespaces (xxx-3000.app.github.dev): /api/backend → Next.js proxy (aynı origin, CORS yok)
+ * - Yerel (http://localhost:3000): http://localhost:8000
+ * - Diğer durumlar: NEXT_PUBLIC_API_URL veya /api/backend
+ */
 export function getApiBase(): string {
   if (typeof window !== "undefined") {
     const o = window.location.origin;
-    if (o.includes("-3000.")) return o.replace("-3000.", "-8000.");
+    // GitHub Codespaces: xxx-3000.app.github.dev → aynı origin, Next.js proxy
+    if (o.includes("app.github.dev")) return "/api/backend";
+    // Yerel geliştirme: 3000 → 8000
     if (o.includes(":3000")) return o.replace(":3000", ":8000");
   }
   return process.env.NEXT_PUBLIC_API_URL || "/api/backend";
