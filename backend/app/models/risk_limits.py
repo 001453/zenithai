@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import Base
@@ -20,4 +20,4 @@ class RiskLimit(Base):
     )
     max_position_size: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)
     daily_loss_limit: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
