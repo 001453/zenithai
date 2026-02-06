@@ -7,7 +7,10 @@ from passlib.context import CryptContext
 
 from app.config import get_settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Notlar:
+# - Bcrypt, 72 byte üzeri şifrelerde hata fırlatabiliyor (Docker ortamlarında ekstra sorunlar çıkarabiliyor).
+# - Demo / geliştirme ortamı için daha esnek ve güvenli bir alternatif olarak pbkdf2_sha256 kullanıyoruz.
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
