@@ -70,9 +70,9 @@ cp .env.example .env
 # Nano editör ile aç
 nano .env
 ```
-`.env` içinde şu satırı bul ve yorum işaretini kaldır, değeri gir:
+`.env` içinde şu satırı bul, yorum işaretini kaldır ve **kendi Twelve Data API anahtarınızı** yazın (https://twelvedata.com üzerinden ücretsiz alabilirsiniz):
 ```
-TWELVE_DATA_API_KEY=b8f291e862f841f8977d56542d09fcc2
+TWELVE_DATA_API_KEY=buraya-kendi-anahtarinizi-yazin
 ```
 Kaydet: `Ctrl+O`, Enter, çık: `Ctrl+X`
 
