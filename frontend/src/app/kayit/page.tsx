@@ -21,8 +21,9 @@ export default function KayitPage() {
     e.preventDefault();
     setHata("");
     setYukleniyor(true);
+    const apiUrl = getApiBase();
     try {
-      const res = await fetch(`${getApiBase()}/api/v1/auth/register`, {
+      const res = await fetch(`${apiUrl}/api/v1/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -31,16 +32,23 @@ export default function KayitPage() {
           password: sifre,
         }),
       });
-      const data = await res.json();
+      let data: { detail?: string; access_token?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        setHata(res.ok ? "Yanıt okunamadı." : `Sunucu hatası (${res.status}). Backend ${apiUrl} erişilebilir mi?`);
+        return;
+      }
       if (!res.ok) {
         setHata(data.detail || "Kayıt başarısız.");
         return;
       }
-      setToken(data.access_token);
+      setToken(data.access_token ?? "");
       router.push("/dashboard");
       router.refresh();
-    } catch {
-      setHata("Bağlantı hatası.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setHata(`Bağlantı hatası: ${msg}. API: ${apiUrl}`);
     } finally {
       setYukleniyor(false);
     }

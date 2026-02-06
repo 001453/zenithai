@@ -33,6 +33,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    origins = list(settings.cors_origins)
+    if settings.cors_origins_extra:
+        origins.extend(s.strip() for s in settings.cors_origins_extra.split(",") if s.strip())
     app = FastAPI(
         title=settings.app_name,
         version=__version__,
@@ -43,7 +46,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=origins,
         allow_origin_regex=settings.cors_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],

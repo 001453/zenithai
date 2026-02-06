@@ -29,9 +29,10 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    # CORS (localhost + Codespaces *.app.github.dev)
+    # CORS (localhost + Codespaces *.app.github.dev; ek: CORS_ORIGINS_EXTRA=a,b)
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
-    cors_origin_regex: str | None = "https://.*\\.app\\.github\\.dev"  # Codespaces frontend
+    cors_origin_regex: str | None = r"https://[^/]+\.app\.github\.dev"  # Codespaces frontend
+    cors_origins_extra: str | None = None  # Virgülle ayrılmış ek origin'ler
 
     # Market data providers (API keys from env)
     binance_api_key: Optional[str] = None

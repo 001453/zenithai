@@ -113,6 +113,7 @@ Alternatif:
 | Sorun | Çözüm |
 |-------|-------|
 | Port görünmüyor | PORTS panelinde "Forward a Port" ile 3000 ve 8000 ekle |
+| Kayıt/Giriş: Bağlantı hatası | Tarayıcıda `xxx-8000.app.github.dev/docs` açılıyor mu kontrol et. Port 8000 **Public** yapın (PORTS'ta sağ tık). Sayfayı sert yenileyin (Ctrl+Shift+R). Hata mesajında yazan API URL'sini kontrol edin. |
 | Docker hatası | Terminal'de `docker --version` çalışıyorsa Docker yüklü demektir |
 | .env yok | `cp .env.example .env` çalıştır, ardından düzenle |
 | Build uzun sürüyor | İlk build normalde 3–5 dakika sürebilir |
