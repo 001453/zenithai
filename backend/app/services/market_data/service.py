@@ -62,3 +62,49 @@ async def get_ticker(exchange_id: str, symbol: str) -> dict[str, Any]:
         }
     finally:
         await ex.close()
+
+
+async def get_order_book(
+    exchange_id: str,
+    symbol: str,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Emir defteri: alış (bids) ve satış (asks) listesi. twelvedata desteklemez."""
+    if exchange_id == "twelvedata":
+        return {"exchange": exchange_id, "symbol": symbol, "bids": [], "asks": []}
+    ex = _get_exchange(exchange_id)
+    try:
+        ob = await ex.fetch_order_book(symbol, limit)
+        return {
+            "exchange": exchange_id,
+            "symbol": symbol,
+            "bids": [[float(p), float(q)] for p, q in (ob.get("bids") or [])[:limit]],
+            "asks": [[float(p), float(q)] for p, q in (ob.get("asks") or [])[:limit]],
+        }
+    finally:
+        await ex.close()
+
+
+async def get_trades(
+    exchange_id: str,
+    symbol: str,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Son işlemler (market trades). twelvedata desteklemez."""
+    if exchange_id == "twelvedata":
+        return {"exchange": exchange_id, "symbol": symbol, "trades": []}
+    ex = _get_exchange(exchange_id)
+    try:
+        trades = await ex.fetch_trades(symbol, limit=limit)
+        out = []
+        for t in trades[:limit]:
+            out.append({
+                "id": t.get("id"),
+                "price": float(t.get("price", 0)),
+                "amount": float(t.get("amount", 0)),
+                "side": t.get("side", "buy"),
+                "timestamp": t.get("timestamp"),
+            })
+        return {"exchange": exchange_id, "symbol": symbol, "trades": out}
+    finally:
+        await ex.close()

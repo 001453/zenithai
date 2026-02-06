@@ -32,3 +32,23 @@ async def get_ticker(
 ) -> dict:
     """Anlık fiyat (son fiyat, 24s değişim, hacim)."""
     return await market_service.get_ticker(exchange, symbol)
+
+
+@router.get("/orderbook")
+async def get_orderbook(
+    exchange: str = Query("binance"),
+    symbol: str = Query("BTC/USDT"),
+    limit: int = Query(20, ge=5, le=50),
+) -> dict:
+    """Emir defteri (alış/satış fiyat ve miktar)."""
+    return await market_service.get_order_book(exchange, symbol, limit)
+
+
+@router.get("/trades")
+async def get_trades(
+    exchange: str = Query("binance"),
+    symbol: str = Query("BTC/USDT"),
+    limit: int = Query(50, ge=1, le=100),
+) -> dict:
+    """Son işlemler (piyasa alım satım)."""
+    return await market_service.get_trades(exchange, symbol, limit)
