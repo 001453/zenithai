@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import Base
@@ -20,4 +20,4 @@ class Position(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8))
     entry_price_avg: Mapped[Decimal] = mapped_column(Numeric(20, 8))
     mode: Mapped[str] = mapped_column(String(20), default="paper")  # paper | live
-    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
