@@ -59,12 +59,14 @@ export default function SymbolPage() {
   const symbol = decodeURIComponent((params.symbol as string) || "");
   const [timeframe, setTimeframe] = useState("1h");
   const [ohlcv, setOhlcv] = useState<[number, number, number, number, number, number][]>([]);
-  const [ticker, setTicker] = useState<{ last?: number; change_24h?: number } | null>(null);
+  const [ticker, setTicker] = useState<{ last?: number; change_24h?: number; high_24h?: number; low_24h?: number; volume?: number } | null>(null);
   const [orderBook, setOrderBook] = useState<{ bids: [number, number][]; asks: [number, number][] }>({ bids: [], asks: [] });
   const [trades, setTrades] = useState<{ price: number; amount: number; side: string; timestamp?: number }[]>([]);
   const [symbols, setSymbols] = useState<string[]>([]);
   const [symbolSearch, setSymbolSearch] = useState("");
+  const [quoteFilter, setQuoteFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hizliMiktar, setHizliMiktar] = useState("0.001");
   const [hizliFiyat, setHizliFiyat] = useState("");
   const [emirTipi, setEmirTipi] = useState<"market" | "limit">("market");
@@ -121,15 +123,36 @@ export default function SymbolPage() {
       .catch(() => {});
   }, [exchange]);
 
+  const quotes = useMemo(() => {
+    const set = new Set<string>();
+    symbols.forEach((s) => {
+      const i = s.lastIndexOf("/");
+      if (i >= 0) set.add(s.slice(i + 1));
+    });
+    return Array.from(set).sort();
+  }, [symbols]);
+
   const filteredSymbols = useMemo(() => {
-    if (!symbolSearch.trim()) return symbols;
-    const q = symbolSearch.trim().toUpperCase();
-    return symbols.filter((s) => s.toUpperCase().includes(q));
-  }, [symbols, symbolSearch]);
+    let list = symbols;
+    if (quoteFilter) list = list.filter((s) => s.endsWith("/" + quoteFilter));
+    if (symbolSearch.trim()) {
+      const q = symbolSearch.trim().toUpperCase();
+      list = list.filter((s) => s.toUpperCase().includes(q));
+    }
+    return list;
+  }, [symbols, symbolSearch, quoteFilter]);
+
+  const orderTotal = useMemo(() => {
+    const q = Number(hizliMiktar);
+    const p = emirTipi === "limit" && hizliFiyat ? Number(hizliFiyat) : (ticker?.last ?? 0);
+    if (!q || !p) return "";
+    return (q * p).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }, [hizliMiktar, hizliFiyat, emirTipi, ticker?.last]);
 
   useEffect(() => {
     if (!symbol) return;
     setLoading(true);
+    setLoadError(null);
     Promise.all([
       fetch(`${getApiBase()}/api/v1/markets/ohlcv?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=100`).then((r) => r.json()),
       fetch(`${getApiBase()}/api/v1/markets/ticker?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()),
@@ -137,12 +160,15 @@ export default function SymbolPage() {
       fetch(`${getApiBase()}/api/v1/markets/trades?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&limit=30`).then((r) => r.json()),
     ])
       .then(([ohlcvRes, tickerRes, obRes, tradesRes]) => {
-        if (ohlcvRes.candles) setOhlcv(ohlcvRes.candles);
+        if (ohlcvRes?.candles) setOhlcv(ohlcvRes.candles);
         setTicker(tickerRes);
         if (obRes?.bids && obRes?.asks) setOrderBook({ bids: obRes.bids, asks: obRes.asks });
         if (Array.isArray(tradesRes?.trades)) setTrades(tradesRes.trades);
       })
-      .catch(console.error)
+      .catch((err) => {
+        setLoadError("Veri yüklenemedi. Backend çalışıyor mu?");
+        console.error(err);
+      })
       .finally(() => setLoading(false));
   }, [symbol, exchange, timeframe]);
 
@@ -199,19 +225,22 @@ export default function SymbolPage() {
       <AppHeader showBack backHref="/markets" title={symbol} />
 
       <main className="mx-auto px-3 py-4 max-w-[1920px]">
-        {/* Üst: Sembol + Fiyat + Timeframe */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        {/* Üst: Sembol + Fiyat + 24s özet + Timeframe */}
+        <div className="flex flex-wrap items-center gap-4 mb-3 pb-3 border-b border-zinc-800">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-white">{symbol}</h1>
+            <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 uppercase">{exchange}</span>
             {ticker && (
-              <span className="text-white font-mono">
-                {ticker.last != null ? Number(ticker.last).toLocaleString() : "—"}
+              <>
+                <span className="text-white font-mono text-lg">
+                  {ticker.last != null ? Number(ticker.last).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 }) : "—"}
+                </span>
                 {ticker.change_24h != null && (
                   <span className={ticker.change_24h >= 0 ? "text-emerald-400" : "text-red-400"}>
-                    {" "}{ticker.change_24h >= 0 ? "+" : ""}{ticker.change_24h?.toFixed(2)}%
+                    {ticker.change_24h >= 0 ? "+" : ""}{ticker.change_24h?.toFixed(2)}%
                   </span>
                 )}
-              </span>
+              </>
             )}
             <select
               value={timeframe}
@@ -223,10 +252,28 @@ export default function SymbolPage() {
               ))}
             </select>
           </div>
+          {ticker && (ticker.high_24h != null || ticker.low_24h != null || ticker.volume != null) && (
+            <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-400">
+              {ticker.high_24h != null && (
+                <span>24s Yüksek <span className="text-zinc-300">{Number(ticker.high_24h).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
+              )}
+              {ticker.low_24h != null && (
+                <span>24s Düşük <span className="text-zinc-300">{Number(ticker.low_24h).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
+              )}
+              {ticker.volume != null && (
+                <span>24s Hacim <span className="text-zinc-300">{Number(ticker.volume).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Ana grid: Sol Order Book | Orta Grafik + Al/Sat | Sağ Token list + Trades */}
-        {loading ? (
+        {loadError ? (
+          <div className="rounded-xl border border-red-900/50 bg-red-900/10 p-6 text-center text-red-300">
+            <p>{loadError}</p>
+            <p className="text-sm text-zinc-500 mt-2">Sayfayı yenileyerek tekrar deneyin.</p>
+          </div>
+        ) : loading ? (
           <div className="h-[480px] rounded-xl border border-zinc-800 flex items-center justify-center text-zinc-500">
             Grafik yükleniyor...
           </div>
@@ -234,43 +281,67 @@ export default function SymbolPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_240px] gap-3">
             {/* Sol: Emir defteri */}
             <div className="order-2 lg:order-1">
-              <OrderBook bids={orderBook.bids} asks={orderBook.asks} maxRows={12} />
+              <OrderBook
+              bids={orderBook.bids}
+              asks={orderBook.asks}
+              maxRows={12}
+              onPriceClick={(price) => {
+                setHizliFiyat(String(price));
+                setEmirTipi("limit");
+              }}
+            />
             </div>
 
             {/* Orta: Grafik + Grafiğin altında Al/Sat */}
             <div className="order-1 lg:order-2 flex flex-col gap-3">
               <div className="rounded-xl border border-zinc-800 overflow-hidden">
                 <Chart symbol={symbol} data={ohlcv} />
+                <div className="flex items-center gap-4 px-3 py-1.5 bg-zinc-900/80 border-t border-zinc-800 text-xs text-zinc-500">
+                  <span><span className="inline-block w-2 h-0.5 bg-[#a78bfa] rounded mr-1" /> MA(7)</span>
+                  <span><span className="inline-block w-2 h-0.5 bg-[#f59e0b] rounded mr-1" /> MA(20)</span>
+                </div>
               </div>
               {/* Al/Sat grafiğin altında */}
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
                 <div className="text-zinc-400 text-sm font-medium mb-3">Emir</div>
                 {token ? (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
                     <select
                       value={emirTipi}
                       onChange={(e) => setEmirTipi(e.target.value as "market" | "limit")}
-                      className="rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
+                      className="rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
                     >
                       <option value="market">Piyasa</option>
                       <option value="limit">Limit</option>
                     </select>
-                    {emirTipi === "limit" && (
+                    <div className="flex items-center gap-1">
+                      <label className="text-zinc-500 text-xs">Fiyat</label>
                       <input
                         type="text"
-                        value={hizliFiyat}
+                        value={emirTipi === "limit" ? hizliFiyat : (ticker?.last != null ? String(ticker.last) : "")}
                         onChange={(e) => setHizliFiyat(e.target.value)}
                         placeholder="Fiyat"
-                        className="w-28 rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
+                        readOnly={emirTipi === "market"}
+                        className="w-28 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
                       />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <label className="text-zinc-500 text-xs">Miktar</label>
+                      <input
+                        type="text"
+                        value={hizliMiktar}
+                        onChange={(e) => setHizliMiktar(e.target.value)}
+                        placeholder="0.001"
+                        title="Minimum miktar borsaya göre değişir"
+                        className="w-24 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
+                      />
+                    </div>
+                    {orderTotal && (
+                      <div className="flex items-center gap-1">
+                        <label className="text-zinc-500 text-xs">Toplam</label>
+                        <span className="text-zinc-300 text-sm font-mono px-2 py-1 rounded bg-zinc-800/50">{orderTotal}</span>
+                      </div>
                     )}
-                    <input
-                      type="text"
-                      value={hizliMiktar}
-                      onChange={(e) => setHizliMiktar(e.target.value)}
-                      placeholder="Miktar"
-                      className="w-24 rounded border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
-                    />
                     <button
                       type="button"
                       onClick={() => hizliEmir("buy")}
@@ -298,26 +369,40 @@ export default function SymbolPage() {
             {/* Sağ: Arama + Diğer tokenler + Market Trades */}
             <div className="order-3 flex flex-col gap-3 min-h-0">
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 overflow-hidden flex flex-col flex-1 min-h-0">
-                <div className="p-2 border-b border-zinc-800">
+                <div className="p-2 border-b border-zinc-800 space-y-2">
                   <input
                     type="text"
                     placeholder="Sembol ara..."
                     value={symbolSearch}
                     onChange={(e) => setSymbolSearch(e.target.value)}
-                    className="w-full rounded border border-zinc-600 bg-zinc-800 px-2 py-1.5 text-white text-sm placeholder-zinc-500"
+                    className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-2 py-1.5 text-white text-sm placeholder-zinc-500"
                   />
+                  <select
+                    value={quoteFilter}
+                    onChange={(e) => setQuoteFilter(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-600 bg-zinc-800 px-2 py-1.5 text-white text-xs"
+                  >
+                    <option value="">Tüm pariteler</option>
+                    {quotes.map((q) => (
+                      <option key={q} value={q}>{q}</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="text-zinc-400 text-xs px-2 py-1 border-b border-zinc-800">Pariteler</div>
+                <div className="text-zinc-400 text-xs px-2 py-1.5 border-b border-zinc-800">Pariteler</div>
                 <div className="flex-1 overflow-y-auto max-h-[200px] min-h-[120px]">
-                  {filteredSymbols.map((s) => (
-                    <Link
-                      key={s}
-                      href={`/markets/${encodeURIComponent(s)}?exchange=${exchange}`}
-                      className={`block px-2 py-1.5 text-sm border-b border-zinc-800/50 hover:bg-zinc-800/50 ${s === symbol ? "bg-emerald-900/20 text-emerald-400" : "text-zinc-300"}`}
-                    >
-                      {s}
-                    </Link>
-                  ))}
+                  {filteredSymbols.length === 0 ? (
+                    <p className="px-2 py-3 text-zinc-500 text-xs">Eşleşen parite yok</p>
+                  ) : (
+                    filteredSymbols.map((s) => (
+                      <Link
+                        key={s}
+                        href={`/markets/${encodeURIComponent(s)}?exchange=${exchange}`}
+                        className={`block px-2 py-1.5 text-sm border-b border-zinc-800/50 hover:bg-zinc-800/50 ${s === symbol ? "bg-emerald-900/20 text-emerald-400" : "text-zinc-300"}`}
+                      >
+                        {s}
+                      </Link>
+                    ))
+                  )}
                 </div>
               </div>
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 overflow-hidden flex flex-col flex-1 min-h-0">
@@ -334,19 +419,27 @@ export default function SymbolPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {trades.slice(0, 30).map((t, i) => (
-                        <tr key={i}>
-                          <td className={`py-0.5 px-2 ${t.side === "buy" ? "text-emerald-400" : "text-red-400"}`}>
-                            {Number(t.price).toLocaleString(undefined, { maximumFractionDigits: 4 })}
-                          </td>
-                          <td className="text-right py-0.5 px-2 text-zinc-400">
-                            {Number(t.amount).toLocaleString(undefined, { maximumFractionDigits: 6 })}
-                          </td>
-                          <td className="text-right py-0.5 px-2 text-zinc-500">
-                            {t.timestamp ? new Date(t.timestamp).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}
+                      {trades.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="py-4 px-2 text-center text-zinc-500 text-xs">
+                            Henüz işlem yok
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        trades.slice(0, 30).map((t, i) => (
+                          <tr key={i}>
+                            <td className={`py-0.5 px-2 ${t.side === "buy" ? "text-emerald-400" : "text-red-400"}`}>
+                              {Number(t.price).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                            </td>
+                            <td className="text-right py-0.5 px-2 text-zinc-400">
+                              {Number(t.amount).toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                            </td>
+                            <td className="text-right py-0.5 px-2 text-zinc-500">
+                              {t.timestamp ? new Date(t.timestamp).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

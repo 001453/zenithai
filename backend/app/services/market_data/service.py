@@ -59,6 +59,8 @@ async def get_ticker(exchange_id: str, symbol: str) -> dict[str, Any]:
             "ask": ticker.get("ask"),
             "volume": ticker.get("baseVolume"),
             "change_24h": ticker.get("percentage"),
+            "high_24h": ticker.get("high"),
+            "low_24h": ticker.get("low"),
         }
     finally:
         await ex.close()
