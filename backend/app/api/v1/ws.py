@@ -23,10 +23,15 @@ async def ws_ticker(
             try:
                 data = await market_service.get_ticker(exchange, symbol)
                 await websocket.send_text(json.dumps(data))
+            except RuntimeError:
+                break  # Bağlantı kapatıldı, send artık çalışmaz
             except Exception as e:
-                await websocket.send_text(
-                    json.dumps({"hata": str(e), "sembol": symbol})
-                )
+                try:
+                    await websocket.send_text(
+                        json.dumps({"hata": str(e), "sembol": symbol})
+                    )
+                except RuntimeError:
+                    break
             await asyncio.sleep(interval_sec)
     except WebSocketDisconnect:
         pass
@@ -50,10 +55,15 @@ async def ws_ohlcv(
                     exchange, symbol, timeframe, limit
                 )
                 await websocket.send_text(json.dumps(data))
+            except RuntimeError:
+                break  # Bağlantı kapatıldı
             except Exception as e:
-                await websocket.send_text(
-                    json.dumps({"hata": str(e), "sembol": symbol})
-                )
+                try:
+                    await websocket.send_text(
+                        json.dumps({"hata": str(e), "sembol": symbol})
+                    )
+                except RuntimeError:
+                    break
             await asyncio.sleep(interval_sec)
     except WebSocketDisconnect:
         pass

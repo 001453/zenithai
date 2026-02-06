@@ -25,6 +25,10 @@ docker compose up -d
 
 Frontend, `/api/backend/*` isteklerini otomatik olarak backend:8000'e yönlendirir.
 
+### GitHub Codespaces
+
+Codespaces’te frontend (port 3000) ve backend (port 8000) ayrı URL’lerde açılır. Tarayıcıda `xxx-3000.app.github.dev` kullanıldığında API istekleri otomatik olarak `xxx-8000.app.github.dev` adresine gider; proxy kullanılmaz. Detaylı adımlar için **CODESPACES.md** dosyasına bakın.
+
 ## Geliştirme (yerel)
 
 ### Backend

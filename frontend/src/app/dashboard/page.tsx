@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { TrendingUp, Bot, FileText, Brain, Shield, BarChart3 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
-import { fetchAuth } from "@/lib/api";
+import { fetchAuth, getApiBase } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 type Summary = {
@@ -18,6 +18,10 @@ export default function DashboardPage() {
   const { token, yuklendi } = useRequireAuth();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [hata, setHata] = useState<string | null>(null);
+  const [docsUrl, setDocsUrl] = useState("/api/backend/docs");
+  useEffect(() => {
+    setDocsUrl(getApiBase() + "/docs");
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -123,7 +127,7 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6">
           <h2 className="text-lg font-medium text-white mb-4">Hızlı erişim</h2>
           <p className="text-zinc-500 text-sm">
-            API: <a href="/api/backend/docs" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">/api/backend/docs</a>
+            API: <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Swagger</a>
           </p>
         </div>
       </main>
