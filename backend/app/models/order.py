@@ -20,9 +20,10 @@ class Order(Base):
     )
     symbol: Mapped[str] = mapped_column(String(50))
     side: Mapped[str] = mapped_column(String(10))  # buy | sell
-    order_type: Mapped[str] = mapped_column(String(20), default="market")  # market | limit
+    order_type: Mapped[str] = mapped_column(String(20), default="market")  # market | limit | stop_market | stop_limit
     quantity: Mapped[Decimal] = mapped_column(Numeric(20, 8))
-    price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)  # limit için
+    price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)  # limit fiyat
+    stop_price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8), nullable=True)  # stop tetikleme fiyatı
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | filled | cancelled
     mode: Mapped[str] = mapped_column(String(20), default="paper")  # paper | live
     exchange_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # borsa emir id

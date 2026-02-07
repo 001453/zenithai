@@ -4,6 +4,51 @@ Adım adım rehber.
 
 ---
 
+## Build almak ve linkler 404 veriyorsa
+
+**Önce (yerelde – Cursor/Bilgisayar):** Değişiklikleri GitHub’a gönder:
+```bash
+git add .
+git commit -m "Indicators: RSI, MACD, SMA, EMA + fallback"
+git push
+```
+
+**CodeSpaces terminalde (sırayla):**
+
+```bash
+cd /workspaces/zenithai
+git pull
+docker compose down
+docker compose build --no-cache frontend
+docker compose up -d
+docker compose exec backend alembic upgrade head
+```
+(`--no-cache` = cache kullanma, indikatörlü yeni kodu kesin al.)
+
+Build bittikten sonra:
+
+1. Alt tarafta **PORTS** sekmesini aç.
+2. **3000** ve **8000** satırlarında görünen **adresi** kopyala (örn. `https://xxx-3000...github.dev`). Bazen `3000-humble-funicular-...` değil, farklı bir isim çıkar — **o an gördüğün URL doğru olandır.**
+3. Port 3000 ve 8000’e **sağ tık → Port Visibility → Public** yap.
+4. **Frontend:** PORTS’taki 3000 satırındaki linke tıkla (veya globe ikonu).
+5. **Backend / API:** PORTS’taki 8000 satırındaki linke tıkla, sonuna `/docs` ekle (Swagger). İndikatörler: aynı 8000 linkinin sonuna `/api/v1/markets/indicators?exchange=binance&symbol=BTC/USDT&timeframe=1h&limit=50` ekle.
+
+**404 alıyorsan:** Tarayıcıda kullandığın adres, PORTS sekmesinde 3000/8000 için yazan adresle **birebir aynı** olmalı. Farklı bir sekmede veya farklı cihazda açıyorsan, yine PORTS’ta görünen linki kullan.
+
+---
+
+## Bu CodeSpace’in adresleri (örnek)
+
+CodeSpace host örneği: **humble-funicular-5xr4x65xxv63v99.github.dev**
+
+| Ne | Örnek URL (PORTS’ta gördüğünü kullan) |
+|----|--------------------------------------|
+| Frontend | `https://...-3000....github.dev/` |
+| Backend Swagger | `https://...-8000....github.dev/docs` |
+| İndikatörler API | `https://...-8000....github.dev/api/v1/markets/indicators?exchange=binance&symbol=BTC/USDT&timeframe=1h&limit=50` |
+
+---
+
 ## 1. Projeyi GitHub'a yükle
 
 ### 1.1 Git (yüklü değilse)
@@ -76,18 +121,31 @@ TWELVE_DATA_API_KEY=buraya-kendi-anahtarinizi-yazin
 ```
 Kaydet: `Ctrl+O`, Enter, çık: `Ctrl+X`
 
-### 3.4 Docker Compose ile başlat
+### 3.4 Proje köküne geç
 ```bash
-docker compose up --build
+cd /workspaces/zenithai
+```
+(Repo adı farklıysa: `cd ~ && ls` ile klasör adına bak, sonra `cd /workspaces/BURAYA_REPO_ADI`)
+
+### 3.5 Docker Compose ile başlat
+```bash
+docker compose up -d --build
 ```
 
 İlk build 2–5 dakika sürebilir.
+
+### 3.6 İlk seferde: veritabanı migration
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+Servisleri kontrol: `docker compose ps` — db, backend, frontend “Up” olmalı.
 
 ---
 
 ## 4. Uygulamaya erişim
 
-Build bitince:
+Build ve migration bitince:
 
 1. Alt kısımdaki **PORTS** sekmesine bak
 2. Port 3000 (Frontend) ve 8000 (Backend) listelenecek
@@ -124,4 +182,4 @@ Alternatif:
 
 - Sol alttan **Codespaces** → **Stop Current Codespace**
 - Tekrar açtığında: repoya git → **Code** → **Codespaces** → mevcut codespace’i aç
-- Sonra tekrar: `docker compose up --build`
+- Sonra tekrar: `cd /workspaces/zenithai && docker compose up -d --build`

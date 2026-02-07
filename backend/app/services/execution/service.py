@@ -30,26 +30,34 @@ async def submit_paper_order(
     side: str,
     quantity: Decimal,
     price: Decimal | None = None,
+    stop_price: Decimal | None = None,
+    order_type: str = "market",
     strategy_id: int | None = None,
     exchange: str = "binance",
 ) -> dict[str, Any]:
-    """Paper emir: risk kontrolü, Order kaydı, pozisyon güncelleme ve realized_pnl."""
+    """Paper emir: risk kontrolü, Order kaydı, pozisyon güncelleme ve realized_pnl.
+    order_type: market | limit | stop_market | stop_limit. Stop emirler kağıtta anında doldurulur (tetikleme simüle).
+    """
     izin_var, hata = await risk_service.check_risk(
         db, user_id, symbol, side, quantity, strategy_id
     )
     if not izin_var:
         return {"ok": False, "hata": hata or "Risk limiti aşıldı."}
 
-    fill_price = await _fill_price_alis(symbol, exchange, price)
+    # Stop emirlerde: stop_market -> piyasa fiyatı, stop_limit -> limit fiyat kullan
+    use_limit_price = order_type == "limit" or order_type == "stop_limit"
+    effective_price = price if use_limit_price else None
+    fill_price = await _fill_price_alis(symbol, exchange, effective_price)
 
     order = Order(
         user_id=user_id,
         strategy_id=strategy_id,
         symbol=symbol,
         side=side,
-        order_type="limit" if price else "market",
+        order_type=order_type,
         quantity=quantity,
         price=price,
+        stop_price=stop_price,
         status="filled",
         mode="paper",
         realized_pnl=None,
@@ -182,8 +190,10 @@ async def list_orders(
             "strategy_id": o.strategy_id,
             "symbol": o.symbol,
             "side": o.side,
+            "order_type": o.order_type,
             "quantity": str(o.quantity),
             "price": str(o.price) if o.price else None,
+            "stop_price": str(o.stop_price) if o.stop_price else None,
             "status": o.status,
             "mode": o.mode,
             "realized_pnl": str(o.realized_pnl) if o.realized_pnl is not None else None,

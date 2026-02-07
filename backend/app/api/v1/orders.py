@@ -16,6 +16,9 @@ class PaperOrderCreate(BaseModel):
     side: str  # buy | sell
     quantity: Decimal
     price: Decimal | None = None
+    stop_price: Decimal | None = None  # stop emirlerde tetikleme fiyatı
+    order_type: str = "market"  # market | limit | stop_market | stop_limit
+    trade_mode: str = "spot"  # spot | futures
     strategy_id: int | None = None
     exchange: str = "binance"
 
@@ -33,6 +36,8 @@ async def submit_paper_order(
         side=body.side,
         quantity=body.quantity,
         price=body.price,
+        stop_price=body.stop_price,
+        order_type=body.order_type,
         strategy_id=body.strategy_id,
         exchange=body.exchange,
     )

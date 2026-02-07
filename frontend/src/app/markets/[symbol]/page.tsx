@@ -59,6 +59,14 @@ export default function SymbolPage() {
   const symbol = decodeURIComponent((params.symbol as string) || "");
   const [timeframe, setTimeframe] = useState("1h");
   const [ohlcv, setOhlcv] = useState<[number, number, number, number, number, number][]>([]);
+  const [indicators, setIndicators] = useState<{
+    rsi: (number | null)[];
+    macd: (number | null)[];
+    macd_signal: (number | null)[];
+    macd_histogram: (number | null)[];
+    sma: (number | null)[];
+    ema: (number | null)[];
+  } | null>(null);
   const [ticker, setTicker] = useState<{ last?: number; change_24h?: number; high_24h?: number; low_24h?: number; volume?: number } | null>(null);
   const [orderBook, setOrderBook] = useState<{ bids: [number, number][]; asks: [number, number][] }>({ bids: [], asks: [] });
   const [trades, setTrades] = useState<{ price: number; amount: number; side: string; timestamp?: number }[]>([]);
@@ -69,25 +77,36 @@ export default function SymbolPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hizliMiktar, setHizliMiktar] = useState("0.001");
   const [hizliFiyat, setHizliFiyat] = useState("");
-  const [emirTipi, setEmirTipi] = useState<"market" | "limit">("market");
+  const [stopFiyat, setStopFiyat] = useState("");
+  const [emirTipi, setEmirTipi] = useState<"market" | "limit" | "stop_market" | "stop_limit">("market");
+  const [islemModu, setIslemModu] = useState<"spot" | "futures">("spot");
   const [hizliGonderiliyor, setHizliGonderiliyor] = useState(false);
   const [hizliMesaj, setHizliMesaj] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const toast = useToast();
   useEffect(() => setToken(getToken()), []);
   useEffect(() => {
-    if (ticker?.last != null && !hizliFiyat) setHizliFiyat(String(ticker.last));
+    if (ticker?.last == null) return;
+    if (!hizliFiyat) setHizliFiyat(String(ticker.last));
+    if (!stopFiyat) setStopFiyat(String(ticker.last));
   }, [ticker?.last]);
 
   const hizliEmir = async (side: "buy" | "sell") => {
     if (!token || !hizliMiktar) return;
-    if (emirTipi === "limit" && (!hizliFiyat || Number(hizliFiyat) <= 0)) {
-      toast.error("Limit emir için fiyat girin.");
+    const needsLimitPrice = emirTipi === "limit" || emirTipi === "stop_limit";
+    const needsStopPrice = emirTipi === "stop_market" || emirTipi === "stop_limit";
+    if (needsLimitPrice && (!hizliFiyat || Number(hizliFiyat) <= 0)) {
+      toast.error("Limit / Stop Limit için fiyat girin.");
+      return;
+    }
+    if (needsStopPrice && (!stopFiyat || Number(stopFiyat) <= 0)) {
+      toast.error("Stop emir için tetikleme (stop) fiyatı girin.");
       return;
     }
     setHizliMesaj(null);
     setHizliGonderiliyor(true);
-    const price = emirTipi === "limit" && hizliFiyat ? Number(hizliFiyat) : null;
+    const price = needsLimitPrice && hizliFiyat ? Number(hizliFiyat) : null;
+    const stop_price = needsStopPrice && stopFiyat ? Number(stopFiyat) : null;
     try {
       const res = await fetchAuth("/api/v1/orders/paper", {
         method: "POST",
@@ -97,6 +116,9 @@ export default function SymbolPage() {
           side,
           quantity: hizliMiktar,
           price,
+          stop_price,
+          order_type: emirTipi,
+          trade_mode: islemModu,
           strategy_id: null,
           exchange,
         }),
@@ -144,7 +166,7 @@ export default function SymbolPage() {
 
   const orderTotal = useMemo(() => {
     const q = Number(hizliMiktar);
-    const p = emirTipi === "limit" && hizliFiyat ? Number(hizliFiyat) : (ticker?.last ?? 0);
+    const p = (emirTipi === "limit" || emirTipi === "stop_limit") && hizliFiyat ? Number(hizliFiyat) : (ticker?.last ?? 0);
     if (!q || !p) return "";
     return (q * p).toLocaleString(undefined, { maximumFractionDigits: 2 });
   }, [hizliMiktar, hizliFiyat, emirTipi, ticker?.last]);
@@ -153,15 +175,24 @@ export default function SymbolPage() {
     if (!symbol) return;
     setLoading(true);
     setLoadError(null);
+    const base = getApiBase();
     Promise.all([
-      fetch(`${getApiBase()}/api/v1/markets/ohlcv?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=100`).then((r) => r.json()),
-      fetch(`${getApiBase()}/api/v1/markets/ticker?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()),
-      fetch(`${getApiBase()}/api/v1/markets/orderbook?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&limit=20`).then((r) => r.json()),
-      fetch(`${getApiBase()}/api/v1/markets/trades?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&limit=30`).then((r) => r.json()),
+      fetch(`${base}/api/v1/markets/indicators?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=100`).then((r) => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${base}/api/v1/markets/ticker?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).catch(() => null),
+      fetch(`${base}/api/v1/markets/orderbook?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&limit=20`).then((r) => r.json()).catch(() => null),
+      fetch(`${base}/api/v1/markets/trades?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&limit=30`).then((r) => r.json()).catch(() => null),
     ])
-      .then(([ohlcvRes, tickerRes, obRes, tradesRes]) => {
-        if (ohlcvRes?.candles) setOhlcv(ohlcvRes.candles);
-        setTicker(tickerRes);
+      .then(async ([indRes, tickerRes, obRes, tradesRes]) => {
+        if (indRes?.candles?.length) {
+          setOhlcv(indRes.candles);
+          if (indRes.indicators) setIndicators(indRes.indicators);
+          else setIndicators(null);
+        } else {
+          const ohlcvRes = await fetch(`${base}/api/v1/markets/ohlcv?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=100`).then((r) => r.json()).catch(() => null);
+          if (ohlcvRes?.candles) setOhlcv(ohlcvRes.candles);
+          setIndicators(null);
+        }
+        if (tickerRes) setTicker(tickerRes);
         if (obRes?.bids && obRes?.asks) setOrderBook({ bids: obRes.bids, asks: obRes.asks });
         if (Array.isArray(tradesRes?.trades)) setTrades(tradesRes.trades);
       })
@@ -296,50 +327,120 @@ export default function SymbolPage() {
             <div className="order-1 lg:order-2 flex flex-col gap-3">
               <div className="rounded-xl border border-zinc-800 overflow-hidden">
                 <Chart symbol={symbol} data={ohlcv} />
-                <div className="flex items-center gap-4 px-3 py-1.5 bg-zinc-900/80 border-t border-zinc-800 text-xs text-zinc-500">
+                <div className="flex flex-wrap items-center gap-4 px-3 py-1.5 bg-zinc-900/80 border-t border-zinc-800 text-xs text-zinc-500">
                   <span><span className="inline-block w-2 h-0.5 bg-[#a78bfa] rounded mr-1" /> MA(7)</span>
                   <span><span className="inline-block w-2 h-0.5 bg-[#f59e0b] rounded mr-1" /> MA(20)</span>
+                  <span className="text-zinc-400 ml-1">İndikatörler:</span>
+                  {indicators ? (
+                    (() => {
+                      const last = (arr: (number | null)[]) => {
+                        for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i];
+                        return null;
+                      };
+                      const r = last(indicators.rsi);
+                      const m = last(indicators.macd);
+                      const s = last(indicators.sma);
+                      const e = last(indicators.ema);
+                      const hasAny = r != null || m != null || s != null || e != null;
+                      return hasAny ? (
+                        <>
+                          {r != null && <span>RSI <span className="text-zinc-300">{r.toFixed(1)}</span></span>}
+                          {m != null && <span>MACD <span className="text-zinc-300">{m.toFixed(6)}</span></span>}
+                          {s != null && <span>SMA(20) <span className="text-zinc-300">{Number(s).toFixed(2)}</span></span>}
+                          {e != null && <span>EMA(20) <span className="text-zinc-300">{Number(e).toFixed(2)}</span></span>}
+                        </>
+                      ) : <span className="text-amber-500">—</span>;
+                    })()
+                  ) : (
+                    <span className="text-amber-500">yükleniyor… (backend güncelse yeniden build al)</span>
+                  )}
                 </div>
               </div>
               {/* Al/Sat grafiğin altında */}
               <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <div className="text-zinc-400 text-sm font-medium mb-3">Emir</div>
-                {token ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select
-                      value={emirTipi}
-                      onChange={(e) => setEmirTipi(e.target.value as "market" | "limit")}
-                      className="rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
+                <div className="flex flex-wrap items-center gap-4 mb-3">
+                  <span className="text-zinc-400 text-sm font-medium">Emir</span>
+                  <div className="flex rounded-lg border border-zinc-600 bg-zinc-800 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setIslemModu("spot")}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md ${islemModu === "spot" ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}
                     >
-                      <option value="market">Piyasa</option>
-                      <option value="limit">Limit</option>
-                    </select>
-                    <div className="flex items-center gap-1">
-                      <label className="text-zinc-500 text-xs">Fiyat</label>
-                      <input
-                        type="text"
-                        value={emirTipi === "limit" ? hizliFiyat : (ticker?.last != null ? String(ticker.last) : "")}
-                        onChange={(e) => setHizliFiyat(e.target.value)}
-                        placeholder="Fiyat"
-                        readOnly={emirTipi === "market"}
-                        className="w-28 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
-                      />
+                      Spot
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIslemModu("futures")}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md ${islemModu === "futures" ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}
+                    >
+                      Vadeli
+                    </button>
+                  </div>
+                </div>
+                {token ? (
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-zinc-500 text-xs">Emir türü</label>
+                      <select
+                        value={emirTipi}
+                        onChange={(e) => setEmirTipi(e.target.value as "market" | "limit" | "stop_market" | "stop_limit")}
+                        className="rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm min-w-[120px]"
+                      >
+                        <option value="market">Piyasa</option>
+                        <option value="limit">Limit</option>
+                        <option value="stop_market">Stop Piyasa</option>
+                        <option value="stop_limit">Stop Limit</option>
+                      </select>
                     </div>
-                    <div className="flex items-center gap-1">
+                    {(emirTipi === "limit" || emirTipi === "stop_limit") && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-zinc-500 text-xs">Fiyat</label>
+                        <input
+                          type="text"
+                          value={hizliFiyat}
+                          onChange={(e) => setHizliFiyat(e.target.value)}
+                          placeholder="Fiyat"
+                          className="w-28 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
+                        />
+                      </div>
+                    )}
+                    {(emirTipi === "stop_market" || emirTipi === "stop_limit") && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-zinc-500 text-xs">Stop fiyat</label>
+                        <input
+                          type="text"
+                          value={stopFiyat}
+                          onChange={(e) => setStopFiyat(e.target.value)}
+                          placeholder="Tetikleme fiyatı"
+                          className="w-28 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
+                        />
+                      </div>
+                    )}
+                    {emirTipi === "market" && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-zinc-500 text-xs">Fiyat (gösterim)</label>
+                        <input
+                          type="text"
+                          value={ticker?.last != null ? String(ticker.last) : ""}
+                          readOnly
+                          className="w-28 rounded-lg border border-zinc-600 bg-zinc-800/50 px-3 py-2 text-zinc-400 text-sm"
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1">
                       <label className="text-zinc-500 text-xs">Miktar</label>
                       <input
                         type="text"
                         value={hizliMiktar}
                         onChange={(e) => setHizliMiktar(e.target.value)}
                         placeholder="0.001"
-                        title="Minimum miktar borsaya göre değişir"
                         className="w-24 rounded-lg border border-zinc-600 bg-zinc-800 px-3 py-2 text-white text-sm"
                       />
                     </div>
                     {orderTotal && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-col gap-1">
                         <label className="text-zinc-500 text-xs">Toplam</label>
-                        <span className="text-zinc-300 text-sm font-mono px-2 py-1 rounded bg-zinc-800/50">{orderTotal}</span>
+                        <span className="text-zinc-300 text-sm font-mono px-3 py-2 rounded-lg bg-zinc-800/50">{orderTotal}</span>
                       </div>
                     )}
                     <button

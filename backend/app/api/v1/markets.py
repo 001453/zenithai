@@ -1,6 +1,7 @@
-"""Markets: live data, symbols, OHLCV - delegates to market_data service."""
+"""Markets: live data, symbols, OHLCV, indicators - delegates to market_data + indicators."""
 from fastapi import APIRouter, Query
 
+from app.services.indicators.calculator import compute_all
 from app.services.market_data import service as market_service
 
 router = APIRouter()
@@ -23,6 +24,26 @@ async def get_ohlcv(
 ) -> dict:
     """OHLCV mum verisi (borsa veya önbellekten)."""
     return await market_service.get_ohlcv(exchange, symbol, timeframe, limit)
+
+
+@router.get("/indicators")
+async def get_indicators(
+    exchange: str = Query("binance"),
+    symbol: str = Query("BTC/USDT"),
+    timeframe: str = Query("1h"),
+    limit: int = Query(100, le=500),
+) -> dict:
+    """OHLCV + RSI, MACD, SMA(20), EMA(20). Hafif; TA-Lib yok."""
+    data = await market_service.get_ohlcv(exchange, symbol, timeframe, limit)
+    candles = data.get("candles") or []
+    indicators = compute_all(candles)
+    return {
+        "exchange": data.get("exchange"),
+        "symbol": data.get("symbol"),
+        "timeframe": data.get("timeframe"),
+        "candles": candles,
+        "indicators": indicators,
+    }
 
 
 @router.get("/ticker")
