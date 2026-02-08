@@ -24,10 +24,10 @@ type Run = {
 function BacktestContent() {
   const searchParams = useSearchParams();
   const urlStrategyId = searchParams.get("strategy_id");
-  const [strategies, setStrategies] = useState<Strategy[]>([]);
-  const [runs, setRuns] = useState<Run[]>([]);
+  const [strategies, setStrategies] = useState([] as Strategy[]);
+  const [runs, setRuns] = useState([] as Run[]);
   const [yukleniyor, setYukleniyor] = useState(true);
-  const [hata, setHata] = useState<string | null>(null);
+  const [hata, setHata] = useState(null as string | null);
   const [form, setForm] = useState({
     strategy_id: urlStrategyId ? Number(urlStrategyId) : 0,
     symbol: "BTC/USDT",
@@ -38,7 +38,7 @@ function BacktestContent() {
     initial_balance: "10000",
   });
   const [calistiriliyor, setCalistiriliyor] = useState(false);
-  const [sonuc, setSonuc] = useState<Record<string, unknown> | null>(null);
+  const [sonuc, setSonuc] = useState(null as Record<string, unknown> | null);
   const RUN_LIMIT = 20;
   const [runsOffset, setRunsOffset] = useState(0);
   const [runsDahaFazla, setRunsDahaFazla] = useState(true);
