@@ -67,6 +67,7 @@ export default function SymbolPage() {
     sma: (number | null)[];
     ema: (number | null)[];
   } | null>(null);
+  const [patterns, setPatterns] = useState<{ index: number; name: string; type: string }[]>([]);
   const [ticker, setTicker] = useState<{ last?: number; change_24h?: number; high_24h?: number; low_24h?: number; volume?: number } | null>(null);
   const [orderBook, setOrderBook] = useState<{ bids: [number, number][]; asks: [number, number][] }>({ bids: [], asks: [] });
   const [trades, setTrades] = useState<{ price: number; amount: number; side: string; timestamp?: number }[]>([]);
@@ -187,10 +188,12 @@ export default function SymbolPage() {
           setOhlcv(indRes.candles);
           if (indRes.indicators) setIndicators(indRes.indicators);
           else setIndicators(null);
+          setPatterns(Array.isArray(indRes.patterns) ? indRes.patterns : []);
         } else {
           const ohlcvRes = await fetch(`${base}/api/v1/markets/ohlcv?exchange=${exchange}&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=100`).then((r) => r.json()).catch(() => null);
           if (ohlcvRes?.candles) setOhlcv(ohlcvRes.candles);
           setIndicators(null);
+          setPatterns([]);
         }
         if (tickerRes) setTicker(tickerRes);
         if (obRes?.bids && obRes?.asks) setOrderBook({ bids: obRes.bids, asks: obRes.asks });
@@ -354,6 +357,20 @@ export default function SymbolPage() {
                   ) : (
                     <span className="text-amber-500">yükleniyor… (backend güncelse yeniden build al)</span>
                   )}
+                  {patterns.length > 0 && (() => {
+                    const lastFew = patterns.slice(-3).reverse();
+                    const label = (n: string) => n === "hammer" ? "Hammer" : n === "doji" ? "Doji" : n === "bullish_engulfing" ? "Bullish Engulfing" : n === "bearish_engulfing" ? "Bearish Engulfing" : n;
+                    return (
+                      <>
+                        <span className="text-zinc-400 ml-1">Son pattern:</span>
+                        {lastFew.map((p, i) => (
+                          <span key={`${p.index}-${p.name}-${i}`} className={p.type === "bullish" ? "text-emerald-400" : p.type === "bearish" ? "text-red-400" : "text-zinc-400"}>
+                            {label(p.name)}{i < lastFew.length - 1 ? ", " : ""}
+                          </span>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               {/* Al/Sat grafiğin altında */}

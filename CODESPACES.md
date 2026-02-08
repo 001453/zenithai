@@ -20,6 +20,7 @@ cd /workspaces/zenithai
 git pull
 docker compose down
 docker compose build --no-cache frontend
+docker compose build --no-cache backend
 docker compose up -d
 docker compose exec backend alembic upgrade head
 ```
